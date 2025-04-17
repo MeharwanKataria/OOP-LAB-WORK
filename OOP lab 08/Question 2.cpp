@@ -1,158 +1,126 @@
 #include <iostream>
 #include <vector>
-#include <algorithm>
 #include <cmath>
-
 using namespace std;
 
-class PolynomialUtils;
+// Forward declaration
+class Poly;
 
-class Polynomial {
+// Utility class for operations
+class PolyOperations {
+public:
+    static int evaluateAt(const Poly& poly, int x);
+    static Poly computeDerivative(const Poly& poly);
+};
+
+class Poly {
+private:
     vector<int> coeffs;
 
 public:
-    Polynomial() {}
+    friend class PolyOperations;
 
-    Polynomial(const vector<int>& coefficients) : coeffs(coefficients) {
-        trimLeadingZeros();
+    Poly() {}
+
+    Poly(const vector<int>& c) : coeffs(c) {}
+
+    // Addition
+    Poly operator+(const Poly& rhs) const {
+        size_t maxLength = max(coeffs.size(), rhs.coeffs.size());
+        vector<int> sum(maxLength, 0);
+
+        for (size_t i = 0; i < coeffs.size(); ++i)
+            sum[i] += coeffs[i];
+
+        for (size_t i = 0; i < rhs.coeffs.size(); ++i)
+            sum[i] += rhs.coeffs[i];
+
+        return Poly(sum);
     }
 
-    void trimLeadingZeros() {
-        while (coeffs.size() > 1 && coeffs.back() == 0) {
-            coeffs.pop_back();
-        }
+    // Subtraction
+    Poly operator-(const Poly& rhs) const {
+        size_t maxLength = max(coeffs.size(), rhs.coeffs.size());
+        vector<int> diff(maxLength, 0);
+
+        for (size_t i = 0; i < coeffs.size(); ++i)
+            diff[i] += coeffs[i];
+
+        for (size_t i = 0; i < rhs.coeffs.size(); ++i)
+            diff[i] -= rhs.coeffs[i];
+
+        return Poly(diff);
     }
 
-    friend class PolynomialUtils;
-
-    Polynomial operator+(const Polynomial& other) const {
-        size_t size = max(coeffs.size(), other.coeffs.size());
-        vector<int> result(size, 0);
+    // Multiplication
+    Poly operator*(const Poly& rhs) const {
+        vector<int> product(coeffs.size() + rhs.coeffs.size() - 1, 0);
 
         for (size_t i = 0; i < coeffs.size(); ++i) {
-            result[i] += coeffs[i];
-        }
-
-        for (size_t i = 0; i < other.coeffs.size(); ++i) {
-            result[i] += other.coeffs[i];
-        }
-
-        return Polynomial(result);
-    }
-
-    Polynomial operator-(const Polynomial& other) const {
-        size_t size = max(coeffs.size(), other.coeffs.size());
-        vector<int> result(size, 0);
-
-        for (size_t i = 0; i < coeffs.size(); ++i) {
-            result[i] += coeffs[i];
-        }
-
-        for (size_t i = 0; i < other.coeffs.size(); ++i) {
-            result[i] -= other.coeffs[i];
-        }
-
-        return Polynomial(result);
-    }
-
-    Polynomial operator*(const Polynomial& other) const {
-        size_t result_size = coeffs.size() + other.coeffs.size() - 1;
-        vector<int> result(result_size, 0);
-
-        for (size_t i = 0; i < coeffs.size(); ++i) {
-            for (size_t j = 0; j < other.coeffs.size(); ++j) {
-                result[i + j] += coeffs[i] * other.coeffs[j];
+            for (size_t j = 0; j < rhs.coeffs.size(); ++j) {
+                product[i + j] += coeffs[i] * rhs.coeffs[j];
             }
         }
 
-        return Polynomial(result);
+        return Poly(product);
     }
 
-    friend ostream& operator<<(ostream& os, const Polynomial& p) {
-        if (p.coeffs.empty()) {
-            os << "0";
-            return os;
+    // Display
+    friend ostream& operator<<(ostream& out, const Poly& poly) {
+        bool printed = false;
+        for (int i = static_cast<int>(poly.coeffs.size()) - 1; i >= 0; --i) {
+            int coef = poly.coeffs[i];
+            if (coef == 0) continue;
+
+            if (printed) out << (coef > 0 ? " + " : " - ");
+            else if (coef < 0) out << "-";
+
+            out << abs(coef);
+            if (i > 0) out << "x^" << i;
+
+            printed = true;
         }
 
-        bool first = true;
-        for (size_t i = p.coeffs.size(); i-- > 0;) {
-            int coef = p.coeffs[i];
-            if (coef != 0) {
-                if (!first && coef > 0) {
-                    os << " + ";
-                }
-                if (coef < 0) {
-                    os << " - ";
-                    coef = -coef;
-                }
-                if (i > 0) {
-                    os << coef << "x";
-                    if (i > 1) os << "^" << i;
-                } else {
-                    os << coef;
-                }
-                first = false;
-            }
-        }
-        return os;
+        if (!printed) out << "0";
+        return out;
     }
 };
 
-class PolynomialUtils {
-public:
-    static int evaluate(const Polynomial& p, int x) {
-        int result = 0;
-        int powerOfX = 1;
+int PolyOperations::evaluateAt(const Poly& poly, int x) {
+    int result = 0;
+    int power = 1;
+    for (int coef : poly.coeffs) {
+        result += coef * power;
+        power *= x;
+    }
+    return result;
+}
 
-        for (size_t i = 0; i < p.coeffs.size(); ++i) {
-            result += p.coeffs[i] * powerOfX;
-            powerOfX *= x;
-        }
+Poly PolyOperations::computeDerivative(const Poly& poly) {
+    int n = static_cast<int>(poly.coeffs.size());
+    if (n <= 1) return Poly({0});
 
-        return result;
+    vector<int> deriv(n - 1);
+    for (int i = 1; i < n; ++i) {
+        deriv[i - 1] = poly.coeffs[i] * i;
     }
 
-    static Polynomial derivative(const Polynomial& p) {
-        if (p.coeffs.size() <= 1) {
-            return Polynomial();
-        }
-
-        vector<int> derivativeCoeffs;
-        for (size_t i = 1; i < p.coeffs.size(); ++i) {
-            derivativeCoeffs.push_back(p.coeffs[i] * i);
-        }
-
-        return Polynomial(derivativeCoeffs);
-    }
-};
+    return Poly(deriv);
+}
 
 int main() {
-	vector<int>coef;
-	for(int i=1;i<5;i++){
-		coef.push_back(i);
-	}
-	vector<int>coef1;
-		for(int i=2;i<5;i++){
-		coef.push_back(i);
-	}
-    Polynomial p1(coef);
-    Polynomial p2(coef1);
+    Poly A({3, 0, 5});   // 3 + 0x + 5x^2
+    Poly B({1, 2, 4});   // 1 + 2x + 4x^2
 
-    Polynomial sum = p1 + p2;
-    cout << "p1 + p2 = " << sum << endl;
+    cout << "Polynomial A: " << A << endl;
+    cout << "Polynomial B: " << B << endl;
 
-    Polynomial diff = p1 - p2;
-    cout << "p1 - p2 = " << diff << endl;
+    cout << "A + B = " << (A + B) << endl;
+    cout << "A - B = " << (A - B) << endl;
+    cout << "A * B = " << (A * B) << endl;
 
-    Polynomial prod = p1 * p2;
-    cout << "p1 * p2 = " << prod << endl;
-
-    int eval = PolynomialUtils::evaluate(p1, 2);
-    cout << "p1 evaluated at x = 2: " << eval << endl;
-
-    Polynomial deriv = PolynomialUtils::derivative(p1);
-    cout << "Derivative of p1: " << deriv << endl;
+    cout << "Value of A at x = 2: " << PolyOperations::evaluateAt(A, 2) << endl;
+    cout << "Derivative of A: " << PolyOperations::computeDerivative(A) << endl;
 
     return 0;
 }
-
